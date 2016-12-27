@@ -30,31 +30,47 @@ function is_system_func() {
     echo $?
 }
 
-function char_get() {
-    echo $1 | cut -c $2
+function char_head() {
+    echo $1 | cut -c1
+}
+
+function char_tail() {
+    echo $1 | cut -c2-
 }
 
 function word_head() {
-    echo $1 | awk '{print $1}'
+    echo $1 | cut -d' ' -f1
 }
 
 function word_tail() {
-    echo $1 | sed 's/\[^\]/ /g'
-}
+    n_col=$(echo $1 | awk '{print NF}')
 
-# parse and eval
-function parse() {
-
-    expr=$1
-    if [ -n "$expr" ]
+    if [ $n_col -lt 2 ]
     then
         echo ''
+        return
     fi
 
-    head=$(char_get $expr 1)
+    echo $1 | cut -d' ' -f2-
+}
 
-    case $head in
-        [a-zA-Z]* )
+function abort() {
+    echo "$@" 1>&2
+    exit 1
+}
+
+# read and eval
+function parse() {
+    expr=$1
+
+    if [ -z "${expr}" ]
+    then
+        echo ''
+        return
+    fi
+
+    case $(char_head "${expr}") in
+        [_a-zA-Z]* )
             if [ $(is_defined_func $expr) -o $(is_system_func $expr) ]
             then
                 # func
@@ -68,26 +84,49 @@ function parse() {
             eval echo $expr
             ;;
         '(' )
-            parse_list $expr
+            parse_list "${expr}"
+            ;;
+        ')' )
+            abort '*** Will not reach here'
             ;;
         * )
+            # number
             echo $expr
             ;;
-        esac
+    esac
 }
 
 function parse_list() {
-    expr=$1
+    expr=$(echo $1 | sed 's/(//' | sed 's/)/ )/g')
+    list=''
+    rest=''
+
+    while true
+    do
+        chead=$(char_head "${expr}")
+        if [ "${chead}" = ')' ]
+        then
+            rest=$(char_tail "${expr}")
+            break
+        fi
+
+        res=$(parse "${expr}")
+        list="${list} $(word_head ${res})"
+        expr=$(word_tail "${res}")
+    done
+
+    echo "$(eval $list) ${rest}"
 }
 
 # user interface
 function repl() {
-    echo ''
+    while true
+    do
+        echo -n 'lisp-on-bash> '
+        read ans
+        echo $(parse "${ans}")
+    done
 }
 
 # main
-
-#repl
-parse 'add 1 1'
-
-
+repl

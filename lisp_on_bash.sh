@@ -64,52 +64,6 @@ function abort() {
 }
 
 # read and eval
-function parse_doller() {
-    expr=$1
-
-    # char
-    if [ "${expr}" = '$' ]
-    then
-        echo $expr
-        return
-    fi
-
-    # variable
-    if [ "$(char_head $(char_tail $expr))" != '(' ]
-    then
-        eval $expr
-        return
-    fi
-
-    # process
-    n=0
-    open=0
-    close=0
-    for c in $(echo $expr | fold -w 1)
-    do
-        n=$((n + 1))
-        case $c in
-            '(' )
-                open=$((open + 1))
-                ;;
-            ')' )
-                close=$((close + 1))
-                if [ $close -eq $open ]
-                then
-                    break
-                fi
-                ;;
-            * )
-                ;;
-        esac
-    done
-
-    res=$(eval $(echo $expr | cut -c3-$n))
-    n=$((n + 3)) # dirty
-    rest=$(echo $expr | cut -c$n-)
-    echo "${res} ${rest}"
-}
-
 function parse_list() {
     expr=$(echo $1 | sed 's/(//' | sed 's/)/ )/g')
 
@@ -151,9 +105,6 @@ function parse() {
                 # str
                 echo "${expr}"
             fi
-            ;;
-        '$' )
-            parse_doller "${expr}"
             ;;
         '(' )
             parse_list "${expr}"

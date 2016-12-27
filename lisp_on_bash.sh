@@ -30,6 +30,10 @@ function is_system_func() {
     echo $?
 }
 
+function len() {
+    echo -n $1 | wc -c
+}
+
 function char_head() {
     echo $1 | cut -c1
 }
@@ -60,6 +64,74 @@ function abort() {
 }
 
 # read and eval
+function parse_doller() {
+    expr=$1
+
+    # char
+    if [ "${expr}" = '$' ]
+    then
+        echo $expr
+        return
+    fi
+
+    # variable
+    if [ "$(char_head $(char_tail $expr))" != '(' ]
+    then
+        eval $expr
+        return
+    fi
+
+    # process
+    n=0
+    open=0
+    close=0
+    for c in $(echo $expr | fold -w 1)
+    do
+        n=$((n + 1))
+        case $c in
+            '(' )
+                open=$((open + 1))
+                ;;
+            ')' )
+                close=$((close + 1))
+                if [ $close -eq $open ]
+                then
+                    break
+                fi
+                ;;
+            * )
+                ;;
+        esac
+    done
+
+    res=$(eval $(echo $expr | cut -c3-$n))
+    n=$((n + 3)) # dirty
+    rest=$(echo $expr | cut -c$n-)
+    echo "${res} ${rest}"
+}
+
+function parse_list() {
+    expr=$(echo $1 | sed 's/(//' | sed 's/)/ )/g')
+
+    list=''
+    rest=''
+    while true
+    do
+        head=$(char_head "${expr}")
+        if [ "${head}" = ')' ]
+        then
+            rest=$(char_tail "${expr}")
+            break
+        fi
+
+        res=$(parse "${expr}")
+        list="${list} $(word_head ${res})"
+        expr=$(word_tail "${res}")
+    done
+
+    echo "$(eval $list) ${rest}"
+}
+
 function parse() {
     expr=$1
 
@@ -74,14 +146,14 @@ function parse() {
             if [ $(is_defined_func $expr) -o $(is_system_func $expr) ]
             then
                 # func
-                echo $expr
+                echo "${expr}"
             else
                 # str
-                echo $expr
+                echo "${expr}"
             fi
             ;;
         '$' )
-            eval echo $expr
+            parse_doller "${expr}"
             ;;
         '(' )
             parse_list "${expr}"
@@ -91,31 +163,9 @@ function parse() {
             ;;
         * )
             # number
-            echo $expr
+            echo "${expr}"
             ;;
     esac
-}
-
-function parse_list() {
-    expr=$(echo $1 | sed 's/(//' | sed 's/)/ )/g')
-    list=''
-    rest=''
-
-    while true
-    do
-        chead=$(char_head "${expr}")
-        if [ "${chead}" = ')' ]
-        then
-            rest=$(char_tail "${expr}")
-            break
-        fi
-
-        res=$(parse "${expr}")
-        list="${list} $(word_head ${res})"
-        expr=$(word_tail "${res}")
-    done
-
-    echo "$(eval $list) ${rest}"
 }
 
 # user interface
@@ -127,6 +177,3 @@ function repl() {
         echo $(parse "${ans}")
     done
 }
-
-# main
-repl

@@ -124,7 +124,7 @@ function repl() {
     while true
     do
         echo -n 'lisp-on-bash> '
-        read ans
-        echo $(parse "${ans}")
+        read cmd
+        echo $(parse "${cmd}")
     done
 }
